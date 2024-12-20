@@ -25,7 +25,7 @@ Architecture
 ------------
 The extension consists of two main components:
 
-1. **CKAN Extension (ckanext-jupyternotebook)**
+1. **CKAN Extension (CKAN_JupyterHub)**
    - Core CKAN plugin functionality
    - Views and templates for notebook interaction
    - Controllers for handling notebook operations
@@ -49,11 +49,11 @@ Requirements
 
 a. Clone the repository::
 
-    git clone https://github.com/SDM-TIB/ckanext-jupyternotebook.git
+    git clone https://github.com/SDM-TIB/CKAN_JupyterHub.git
 
 b. Install the extension package::
 
-    pip install ckanext-jupyternotebook
+    pip install CKAN_JupyterHub/ckanext-jupyternotebook
 
 c. Add the plugin to your CKAN configuration file (typically at ``/etc/ckan/default/ckan.ini``)::
 
@@ -125,8 +125,8 @@ Developer installation
 To install ckanext-jupyternotebook for development, activate your CKAN virtualenv and
 do::
 
-    git clone https://github.com/SDM-TIB/ckanext-jupyternotebook.git
-    cd ckanext-jupyternotebook
+    git clone https://github.com/SDM-TIB/CKAN_JupyterHub.git
+    cd CKAN_JupyterHub/ckanext-jupyternotebook
     python setup.py develop
     pip install -r dev-requirements.txt
 
@@ -148,4 +148,4 @@ To run the tests and produce a coverage report, first make sure you have
 License
 -------
 
-ckanext-jupyternotebook is licensed under GPL-3.0.
+ckanext-CKAN_JupyterHub is licensed under GPL-3.0.
