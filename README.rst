@@ -5,7 +5,9 @@ ckanext-jupyternotebook
 
 This plugin integrates JupyterHub with CKAN, allowing users to execute and temporarily edit interactive Jupyter notebooks within the CKAN environment. The plugin makes data exploration and analysis more accessible and integrated.
 
-## **Features**
+##
+
+**Features**
 
 - Seamless integration of Jupyter Notebooks within CKAN
 - Temporary notebook editing and execution
