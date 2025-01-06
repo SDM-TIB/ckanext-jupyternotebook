@@ -7,7 +7,7 @@ This plugin integrates JupyterHub with CKAN, allowing users to execute and tempo
 
 **Features**
 
-- Seamless integration of Jupyter Notebooks within CKAN
+- Integration of Jupyter Notebooks within CKAN
 - Temporary notebook editing and execution
 - Utilize DockerSpawner to create isolated Docker containers for each user, ensuring a secure and personalized computational environment.
 - Guest user access without login
