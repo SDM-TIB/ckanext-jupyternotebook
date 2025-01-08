@@ -10,7 +10,6 @@ setup(
     version='0.0.1',
 
     description='''TIB - LDM''',
-    long_description=long_description,
     long_description_content_type='text/x-rst',
 
     # The project's main homepage.
