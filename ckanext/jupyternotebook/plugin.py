@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 ignore_empty = plugins.toolkit.get_validator('ignore_empty')
 
 API_URL = os.getenv(
-    'CKAN_API_JUPYTERHUB')  # 'http://jupyterhub:6000'  #os.environ.get('CKAN_STORAGE_PATH') url_nb = os.getenv('CKAN_JUPYTERNOTEBOOK_URL')
+    'CKAN_API_JUPYTERHUB')  # 'http://jupyterhub:6000'
 
 dict_user_session = dict()
 
@@ -93,8 +93,6 @@ class JupyternotebookPlugin(plugins.SingletonPlugin):
         self.jn_filepath = config.get('ckan.jupyternotebooks_path', jn_filepath_default)
         self.jn_url = jn_url_default  # config.get('ckan.jupyternotebooks_url', jn_url_default)
 
-        # dict_user_session[user] = session_id
-
     def get_blueprint(self):
         return views.get_blueprints()
 
@@ -126,8 +124,10 @@ class JupyternotebookPlugin(plugins.SingletonPlugin):
 
         session_id = generate_session_id()
         log.info(session_id)
+        current_session = False
         if session_id in dict_user_session.values():
             user = get_user_id(session_id)
+            current_session = True
         else:
             user = get_data_from_api()
             if user is None:
@@ -143,9 +143,20 @@ class JupyternotebookPlugin(plugins.SingletonPlugin):
         log.info(jn_url)
         # jn_url = "http://localhost:8000/user/" + get_data_from_api() + "/notebooks/"
         self.file = JNFile(filename, resource_id, resource_date, self.jn_filepath, jn_url, url_type)
-        # self.file = JNFile(filename, resource_id, resource_date, self.jn_filepath, self.jn_url, url_type)
         data_dict['nb_file'] = self.file
-        # data_dict['nb_file'].filefullpath = "ERROR"
+
+        if current_session:
+            # Get the notebook name from the JNFile class
+            notebook_name = self.file.filename
+            # Call API to copy the new notebook to the existing container
+            copy_response = requests.get(
+                f"{API_URL}/copy_notebook",
+                params={'username': user, 'notebook_name': notebook_name}
+            )
+
+            if copy_response.status_code != 200 or copy_response.text.strip() != "True":
+                log.error(f"Failed to copy notebook {notebook_name} for user {user}")
+
         return 'jupyternotebook_view.html'
 
     def form_template(self, context, data_dict):

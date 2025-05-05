@@ -6,7 +6,6 @@ from ckan.common import config
 
 log = logging.getLogger(__name__)
 
-# var/lib/ckan/resources/3primerosid/3segundosis/
 class JNFile:
 
     def __init__(self, resource_url, resource_id, resource_date, jn_filepath, jn_url, url_type="", testing=False):
@@ -32,7 +31,7 @@ class JNFile:
         if not self.file_exists():
             self.get_notebooks_file()
         self.jupyternotebook_url = self.urlbase+self.filename
-        self.check_notebook_server_running()
+        # self.check_notebook_server_running()
 
 
     def enable_testing(self):
