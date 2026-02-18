@@ -16,6 +16,15 @@ DEFAULT_MAX_USER = 'ckanext.jupyternotebook.max_user'
 DEFAULT_CPU_PERCENTAGE = 'ckanext.jupyternotebook.cpu'
 DEFAULT_MEMORY_LIMIT = 'ckanext.jupyternotebook.memory'
 API_URL = os.getenv('CKAN_API_JUPYTERHUB')
+API_KEY = os.getenv('JUPYTERHUB_API_TOKEN')
+
+
+def get_api_headers():
+    """Get headers for API requests including optional API key"""
+    headers = {'Content-Type': 'application/json'}
+    if API_KEY:
+        headers['X-API-Key'] = API_KEY
+    return headers
 
 
 def restart_jupyterhub():
@@ -23,6 +32,7 @@ def restart_jupyterhub():
     try:
         response = requests.post(
             API_URL + '/restart_jupyterhub',
+            headers=get_api_headers(),
             timeout=30
         )
 
@@ -61,6 +71,7 @@ def update_jupyterhub_env_variables(updates):
     try:
         response = requests.post(
             API_URL + '/update_env',
+            headers=get_api_headers(),
             json=updates,
             timeout=30
         )

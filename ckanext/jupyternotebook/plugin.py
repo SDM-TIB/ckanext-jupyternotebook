@@ -17,8 +17,17 @@ log = logging.getLogger(__name__)
 ignore_empty = plugins.toolkit.get_validator('ignore_empty')
 
 API_URL = os.getenv('CKAN_API_JUPYTERHUB')
+API_KEY = os.getenv('JUPYTERHUB_API_TOKEN')
 
 dict_user_session = dict()
+
+
+def get_api_headers():
+    """Get headers for API requests including optional API key"""
+    headers = {}
+    if API_KEY:
+        headers['X-API-Key'] = API_KEY
+    return headers
 
 
 def get_data_from_api():
@@ -26,6 +35,7 @@ def get_data_from_api():
     try:
         response = requests.get(
             API_URL + '/get_user',
+            headers=get_api_headers(),
             timeout=10
         )
         
@@ -97,7 +107,7 @@ def copy_notebook_to_user(username, notebook_name):
         # Changed from GET to POST with JSON body
         response = requests.post(
             API_URL + '/copy_notebook',
-            headers={'Content-Type': 'application/json'},
+            headers={**get_api_headers(), 'Content-Type': 'application/json'},
             json={
                 'username': username,
                 'notebook_name': notebook_name
