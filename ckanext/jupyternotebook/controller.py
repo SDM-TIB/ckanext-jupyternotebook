@@ -1,12 +1,13 @@
+import logging
+import os
+
 import ckan.lib.base as base
 import ckan.logic as logic
 import ckan.model as model
-from ckan.common import request, config
-from ckan.plugins import toolkit
-import os
 import requests
+from ckan.common import request
+from ckan.plugins import toolkit
 from ckanext.jupyternotebook import plugin
-import logging
 
 log = logging.getLogger(__name__)
 
@@ -18,13 +19,32 @@ API_URL = os.getenv('CKAN_API_JUPYTERHUB')
 
 
 def restart_jupyterhub():
-    response = requests.get(API_URL + '/restart_jupyterhub')
-    log.info(f"Response: {response}")
-    if response.status_code == 200:
-        result = response.text
-        if result == 'True':
-            return True
-    return False
+    """Restart JupyterHub service via API"""
+    try:
+        response = requests.post(
+            API_URL + '/restart_jupyterhub',
+            timeout=30
+        )
+
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('success'):
+                log.info("JupyterHub restart successful")
+                return True
+            else:
+                log.error(f"JupyterHub restart failed: {data.get('error')}")
+                return False
+        else:
+            log.error(f"API request failed with status {response.status_code}")
+            return False
+            
+    except requests.exceptions.RequestException as e:
+        log.error(f"Error calling restart API: {e}")
+        return False
+    except Exception as e:
+        log.error(f"Unexpected error: {e}")
+        return False
+
 
 def update_env_variable(key, value):
     """Update environment variable"""
@@ -36,41 +56,39 @@ def update_env_variable(key, value):
         return False
 
 
+def update_jupyterhub_env_variables(updates):
+    """Update environment variables in JupyterHub container via API"""
+    try:
+        response = requests.post(
+            API_URL + '/update_env',
+            json=updates,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('success'):
+                log.info(f"Updated variables: {data.get('data', {}).get('updated', [])}")
+                return True
+            else:
+                log.error(f"Failed to update variables: {data.get('error')}")
+                return False
+        else:
+            log.error(f"API request failed with status {response.status_code}")
+            return False
+            
+    except requests.exceptions.RequestException as e:
+        log.error(f"Error calling update_env API: {e}")
+        return False
+    except Exception as e:
+        log.error(f"Unexpected error: {e}")
+        return False
+
+
 class JupyterHubController:
 
     def __init__(self):
         pass
-        # self.docker_client = docker.from_env()
-
-    # def restart_jupyterhub(self):
-    #     """Restart the main JupyterHub container using os.system"""
-    #     try:
-    #         result = os.system('docker restart jupyterhub')
-    #         if result == 0:
-    #             log.info("JupyterHub container successfully restarted")
-    #             return True
-    #         else:
-    #             log.error("Error restarting JupyterHub container")
-    #             return False
-    #     except Exception as e:
-    #         log.error(f"Error restarting JupyterHub: {str(e)}")
-    #         return False
-
-    # def restart_jupyterhub(self):
-    #     """Restart the main JupyterHub container"""
-    #     return True
-        # try:
-        #     # Get container directly by name since we know it from docker-compose
-        #     container = self.docker_client.containers.get('jupyterhub')
-        #     container.restart()
-        #     log.info("JupyterHub container successfully restarted")
-        #     return True
-        # except docker.errors.APIError as e:
-        #     log.error(f"Docker API error while restarting JupyterHub: {str(e)}")
-        #     return False
-        # except Exception as e:
-        #     log.error(f"Error restarting JupyterHub container: {str(e)}")
-        #     return False
 
     @staticmethod
     def get_jupyterhub_env_variable(variable_name, default=''):
@@ -153,22 +171,24 @@ class JupyterHubController:
                         'CKAN_JUPYTERHUB_MEMORY_LIMIT': memory
                     }
 
-                    success = True
+                    local_success = True
                     for key, value in updates.items():
                         if not update_env_variable(key, value):
-                            success = False
+                            local_success = False
                             break
 
-                    # update_env_variable in jupyterhub container
-                    requests.get(API_URL + '/update_env_variable', params=updates)
+                    # Update environment variables in JupyterHub container
+                    remote_success = update_jupyterhub_env_variables(updates)
 
 
                     # if success and restart_jupyterhub():
                     #     toolkit.h.flash_success(
                     #         toolkit._('JupyterHub settings have been updated and service restarted.'))
-                    if success:
+                    if local_success and remote_success:
                         plugin.dict_user_session = dict()
                         toolkit.h.flash_success(toolkit._('JupyterHub settings have been updated.'))
+                    elif local_success and not remote_success:
+                        toolkit.h.flash_error(toolkit._('Local settings updated but failed to update JupyterHub container.'))
                     else:
                         toolkit.h.flash_error(toolkit._('Error updating JupyterHub settings.'))
 

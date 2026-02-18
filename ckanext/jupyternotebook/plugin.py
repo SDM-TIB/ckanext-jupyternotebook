@@ -1,34 +1,58 @@
+import logging
+import os
+from hashlib import sha256
+
+import ckan.lib.helpers as h
 import ckan.plugins as plugins
 import ckan.plugins.toolkit as toolkit
-import ckan.lib.helpers as h
-import logging
-from ckan.common import config
-from .JNFile import JNFile
-import requests
-from ckan.common import request
-from hashlib import sha256
-import os
 import ckanext.jupyternotebook.views as views
+import requests
+from ckan.common import config
+from ckan.common import request
+from ckanext.jupyternotebook.JNFile import JNFile
 
 logging.basicConfig(level=logging.DEBUG)
 
 log = logging.getLogger(__name__)
 ignore_empty = plugins.toolkit.get_validator('ignore_empty')
 
-API_URL = os.getenv(
-    'CKAN_API_JUPYTERHUB')  # 'http://jupyterhub:6000'
+API_URL = os.getenv('CKAN_API_JUPYTERHUB')
 
 dict_user_session = dict()
 
 
 def get_data_from_api():
-    response = requests.get(API_URL + '/get_user')
-    if response.status_code == 200:
-        data = response.json()
-        log.info(data)
-        return data['user']
-    else:
-        log.error('Failed to retrieve data from API')
+    """Get an available guest user from JupyterHub API"""
+    try:
+        response = requests.get(
+            API_URL + '/get_user',
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            # Handle new JSON response format
+            data = response.json()
+            if data.get('success'):
+                username = data.get('data', {}).get('username')
+                log.info(f"Got free user: {username}")
+                return username
+            else:
+                log.error(f"API returned error: {data.get('error')}")
+                return None
+        elif response.status_code == 503:
+            # No users available
+            log.warning('No free users available (503)')
+            return None
+        else:
+            log.error(f'Failed to retrieve data from API: status {response.status_code}')
+            return None
+            
+    except requests.exceptions.RequestException as e:
+        log.error(f'Error calling get_user API: {e}')
+        return None
+    except Exception as e:
+        log.error(f'Unexpected error: {e}')
+        return None
 
 
 def generate_session_id():
@@ -67,6 +91,41 @@ def get_jupyterhub_env_variable(variable_name, default=''):
     return os.getenv(variable_name, default)
 
 
+def copy_notebook_to_user(username, notebook_name):
+    """Copy notebook to user's container via API"""
+    try:
+        # Changed from GET to POST with JSON body
+        response = requests.post(
+            API_URL + '/copy_notebook',
+            headers={'Content-Type': 'application/json'},
+            json={
+                'username': username,
+                'notebook_name': notebook_name
+            },
+            timeout=30
+        )
+        
+        # Handle new JSON response format
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('success'):
+                log.info(f"Successfully copied {notebook_name} to {username}")
+                return True
+            else:
+                log.error(f"Failed to copy notebook: {data.get('error')}")
+                return False
+        else:
+            log.error(f"API request failed with status {response.status_code}")
+            return False
+            
+    except requests.exceptions.RequestException as e:
+        log.error(f"Error calling copy_notebook API: {e}")
+        return False
+    except Exception as e:
+        log.error(f"Unexpected error: {e}")
+        return False
+
+
 class JupyternotebookPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IConfigurer, inherit=True)
     plugins.implements(plugins.IResourceView, inherit=True)
@@ -81,17 +140,17 @@ class JupyternotebookPlugin(plugins.SingletonPlugin):
         toolkit.add_public_directory(config_, 'public')
         # toolkit.add_resource('fanstatic', 'jupyternotebook')
         toolkit.add_resource('static', 'jupyternotebook')
+
         if toolkit.check_ckan_version(min_version='2.10'):
             icon = 'magnifying-glass'
         else:
-            icon = 'fa fa-file-code-o'  # 'search'
+            icon = 'fa fa-file-code-o'
+
         toolkit.add_ckan_admin_tab(config_, 'jupyternotebook_admin.admin', 'JupyterHub', icon=icon)
+
         self.formats = ['ipynb']
         jn_filepath_default = "/var/lib/ckan/notebook"
-        # jn_filepath_default = "/var/lib/docker/volumes/docker_ckan_storage/_data/notebook"
-        jn_url_default = self.url_nb + "user/" + get_data_from_api() + "/notebooks/"  # "http://localhost:8000/user/guest1/notebooks/" # "http://localhost:8000/ldmjupyter/notebooks/"
         self.jn_filepath = config.get('ckan.jupyternotebooks_path', jn_filepath_default)
-        self.jn_url = jn_url_default  # config.get('ckan.jupyternotebooks_url', jn_url_default)
 
     def get_blueprint(self):
         return views.get_blueprints()
@@ -123,39 +182,45 @@ class JupyternotebookPlugin(plugins.SingletonPlugin):
         url_type = data_dict['resource'].get('url_type')
 
         session_id = generate_session_id()
-        log.info(session_id)
+        log.info(f"Session ID: {session_id}")
+
         current_session = False
         if session_id in dict_user_session.values():
             user = get_user_id(session_id)
             current_session = True
         else:
             user = get_data_from_api()
+
             if user is None:
                 toolkit.h.flash_notice(
-                    toolkit._('Sorry, there is not more free JupyterHub user, wait few minutes please.'))
-                # Return the new template when no users are available
+                    toolkit._('Sorry, there is not more free JupyterHub user, wait few minutes please.')
+                )
                 data_dict['nb_file'] = "ERROR"
                 data_dict['home_url'] = h.url_for('home')
                 return 'jupyterhub_no_users.html'
+
             dict_user_session[user] = session_id
+            log.debug(f"New user assigned: {user}")
+
+        # Construct JupyterHub URL for this user
         jn_url = self.url_nb + "user/" + user + "/notebooks/"
-        log.info(dict_user_session)
-        log.info(jn_url)
-        # jn_url = "http://localhost:8000/user/" + get_data_from_api() + "/notebooks/"
+        log.info(f"User sessions: {dict_user_session}")
+        log.info(f"JupyterHub URL: {jn_url}")
+
+        # Create JNFile object
         self.file = JNFile(filename, resource_id, resource_date, self.jn_filepath, jn_url, url_type)
         data_dict['nb_file'] = self.file
 
         if current_session:
-            # Get the notebook name from the JNFile class
             notebook_name = self.file.filename
-            # Call API to copy the new notebook to the existing container
-            copy_response = requests.get(
-                f"{API_URL}/copy_notebook",
-                params={'username': user, 'notebook_name': notebook_name}
-            )
-
-            if copy_response.status_code != 200 or copy_response.text.strip() != "True":
+            log.info(f"Copying notebook {notebook_name} to existing user {user}")
+            
+            success = copy_notebook_to_user(user, notebook_name)
+            
+            if not success:
                 log.error(f"Failed to copy notebook {notebook_name} for user {user}")
+                # Note: We don't fail the request, just log the error
+                # The user might still be able to access previously copied notebooks
 
         return 'jupyternotebook_view.html'
 
