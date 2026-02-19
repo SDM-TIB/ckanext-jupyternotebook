@@ -209,3 +209,9 @@
 .jupyternotebook_error .gear.two {
   -webkit-animation: anticlockwise 3s linear infinite;
 }
+
+#jupyternotebook_iframe {
+  display: none;
+  width: 100%;
+  height: 100%;
+}

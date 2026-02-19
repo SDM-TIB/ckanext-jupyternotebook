@@ -233,6 +233,3 @@ class JupyternotebookPlugin(plugins.SingletonPlugin):
                 # The user might still be able to access previously copied notebooks
 
         return 'jupyternotebook_view.html'
-
-    def form_template(self, context, data_dict):
-        return 'jupyternotebook_form.html'

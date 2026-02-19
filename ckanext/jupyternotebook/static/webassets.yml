@@ -2,3 +2,16 @@ admin:
   output: jupyternotebook/%(version)s_jupyternotebook_admin.css
   contents:
     - css/jupyternotebook-admin.css
+
+plugin:
+  output: jupyternotebook/%(version)s_jupyternotebook_plugin.css
+  contents:
+    - css/jupyternotebook-plugin.css
+
+view:
+  output: jupyternotebook/%(version)s_jupyternotebook_View.js
+  extra:
+    preload:
+      - vendor/jquery
+  contents:
+    - js/jupyternotebook-view.js
