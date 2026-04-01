@@ -136,12 +136,32 @@ def copy_notebook_to_user(username, notebook_name):
         return False
 
 
+def _set_format(resource):
+    url = resource.get('url', '')
+    if url.lower().endswith('.ipynb'):
+        resource['format'] = 'ipynb'
+
+
 class JupyternotebookPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IConfigurer, inherit=True)
     plugins.implements(plugins.IResourceView, inherit=True)
+    plugins.implements(plugins.IResourceController, inherit=True)
     plugins.implements(plugins.IBlueprint, inherit=True)
     plugins.implements(plugins.ITemplateHelpers)
     url_nb = os.getenv('CKAN_JUPYTERNOTEBOOK_URL')
+
+    # IResourceController
+    def before_create(self, context, resource):
+        _set_format(resource)
+
+    def before_update(self, context, current, resource):
+        _set_format(resource)
+
+    def before_resource_create(self, context, resource):
+        _set_format(resource)
+
+    def before_resource_update(self, context, current, resource):
+        _set_format(resource)
 
     # IResourceView
 
