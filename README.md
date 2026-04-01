@@ -69,6 +69,22 @@ Example of customising the extension's behaviour using the following environment
     CKAN_JUPYTERHUB_PERCENTAGE_CPU=50
     CKAN_JUPYTERHUB_MEMORY_LIMIT=1G
 
+## Automatic Resource View Creation
+
+For CKAN to automatically recognize Jupyter Notebook files and create preview views for them, two configuration changes are needed in your `ckan.ini`:
+
+1. **Register the default view:** Add `jupyternotebook` to the list of default views so that CKAN automatically creates a notebook preview when a Jupyter Notebook resource is uploaded:
+   ```ini
+   ckan.views.default_views = jupyternotebook image_view text_view recline_view
+   ```
+
+2. **Enable loading of `.ipynb` files:** Add `ipynb` to the list of loadable preview formats so that CKAN recognizes `.ipynb` as a previewable file type:
+   ```ini
+   ckan.preview.loadable = ipynb html htm rdf+xml owl+xml xml n3 n-triples turtle ...
+   ```
+
+> **Note:** Without these settings, users would have to manually select the notebook view for each uploaded `.ipynb` resource. With both options configured, the preview is created automatically upon resource upload.
+
 ## License
 
 `ckanext-jupyternotebook` is licensed under GPL-3.0, see the [license file](LICENSE).
